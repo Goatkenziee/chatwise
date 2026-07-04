@@ -1,50 +1,29 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { cn } from "@/lib/utils";
-import type { Message, Conversation } from "@/lib/types";
-import {
-  getConversations,
-  getConversation,
-  createConversation,
-  addConversation,
-  updateConversation,
-  deleteConversation,
-  clearConversations,
-  addMessage as storeAddMessage,
-} from "@/lib/store";
+import { Message, Conversation } from "@/lib/types";
 import { MessageBubble } from "./message-bubble";
 import { ChatInput } from "./chat-input";
 import { Sidebar } from "./sidebar";
-import { Sparkles } from "lucide-react";
+import { nanoid } from "nanoid";
+import { Menu, Plus, MessageSquare, Sparkles, Code, BookOpen, Lightbulb, Zap } from "lucide-react";
+
+const SUGGESTED_PROMPTS = [
+  { icon: Sparkles, text: "Explain quantum computing simply" },
+  { icon: Code, text: "Write a Python script to sort files" },
+  { icon: BookOpen, text: "Summarize the theory of relativity" },
+  { icon: Lightbulb, text: "Brainstorm startup ideas for 2025" },
+];
 
 export function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load conversations on mount
-  useEffect(() => {
-    const stored = getConversations();
-    setConversations(stored);
-    if (stored.length > 0) {
-      setActiveConversationId(stored[0].id);
-    } else {
-      const conv = createConversation();
-      addConversation(conv);
-      setConversations([conv]);
-      setActiveConversationId(conv.id);
-    }
-  }, []);
-
-  const activeConversation = conversations.find((c) => c.id === activeConversationId);
-  const messages = activeConversation?.messages ?? [];
-
-  const refreshConversations = useCallback(() => {
-    setConversations([...getConversations()]);
-  }, []);
+  const activeConversation = conversations.find((c) => c.id === activeId);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,225 +31,277 @@ export function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
+  }, [activeConversation?.messages, scrollToBottom]);
 
-  const handleSend = async (content: string) => {
-    let convId = activeConversationId;
+  function createNewConversation() {
+    const id = nanoid();
+    const newConv: Conversation = {
+      id,
+      title: "New Chat",
+      messages: [],
+      model: "gpt-4o-mini",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setConversations((prev) => [newConv, ...prev]);
+    setActiveId(id);
+  }
 
+  function deleteConversation(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeId === id) {
+      setActiveId(null);
+    }
+  }
+
+  async function sendMessage(content: string) {
+    if (!content.trim() || isStreaming) return;
+
+    let convId = activeId;
     if (!convId) {
-      const conv = createConversation();
-      addConversation(conv);
-      convId = conv.id;
-      setActiveConversationId(conv.id);
-      refreshConversations();
+      const id = nanoid();
+      const newConv: Conversation = {
+        id,
+        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
+        messages: [],
+        model: "gpt-4o-mini",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setConversations((prev) => [newConv, ...prev]);
+      setActiveId(id);
+      convId = id;
     }
 
-    // Add user message
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: nanoid(),
       role: "user",
       content,
       createdAt: Date.now(),
     };
-    storeAddMessage(convId, userMessage);
-    refreshConversations();
 
-    // Add placeholder assistant message
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: "",
-      createdAt: Date.now(),
-    };
-    storeAddMessage(convId, assistantMessage);
-    refreshConversations();
-    setIsLoading(true);
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              messages: [...c.messages, userMessage],
+              updatedAt: Date.now(),
+              title: c.messages.length === 0 ? content.slice(0, 50) + (content.length > 50 ? "..." : "") : c.title,
+            }
+          : c
+      )
+    );
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+    setIsStreaming(true);
 
     try {
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+
+      const currentConv = conversations.find((c) => c.id === convId) || {
+        messages: [] as Message[],
+      };
+      const apiMessages = [...currentConv.messages, userMessage].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...(activeConversation?.messages ?? []), userMessage],
-        }),
-        signal: controller.signal,
+        body: JSON.stringify({ messages: apiMessages }),
+        signal: abortController.signal,
       });
 
-      if (!response.ok) throw new Error("Failed to fetch");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
       const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const assistantId = nanoid();
+      const assistantMessage: Message = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        createdAt: Date.now(),
+      };
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId
+            ? { ...c, messages: [...c.messages, assistantMessage] }
+            : c
+        )
+      );
+
       const decoder = new TextDecoder();
       let fullContent = "";
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(data);
-                const delta = parsed.choices?.[0]?.delta?.content || "";
-                fullContent += delta;
-                const conv = getConversation(convId);
-                if (conv) {
-                  const msgIdx = conv.messages.findIndex(
-                    (m) => m.id === assistantMessage.id
-                  );
-                  if (msgIdx !== -1) {
-                    conv.messages[msgIdx].content = fullContent;
-                    updateConversation(convId, { messages: conv.messages });
-                    refreshConversations();
-                  }
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullContent += chunk;
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId
+              ? {
+                  ...c,
+                  messages: c.messages.map((m) =>
+                    m.id === assistantId ? { ...m, content: fullContent } : m
+                  ),
                 }
-              } catch {
-                // skip parse errors
-              }
-            }
-          }
-        }
-      }
-    } catch (error: any) {
-      if (error?.name === "AbortError") return;
-      const conv = getConversation(convId);
-      if (conv) {
-        const msgIdx = conv.messages.findIndex(
-          (m) => m.id === assistantMessage.id
+              : c
+          )
         );
-        if (msgIdx !== -1) {
-          conv.messages[msgIdx].content = "Sorry, I encountered an error. Please try again.";
-          updateConversation(convId, { messages: conv.messages });
-          refreshConversations();
-        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("Chat error:", error);
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId
+              ? {
+                  ...c,
+                  messages: [
+                    ...c.messages,
+                    {
+                      id: nanoid(),
+                      role: "assistant",
+                      content: "Sorry, something went wrong. Please try again.",
+                      createdAt: Date.now(),
+                    },
+                  ],
+                }
+              : c
+          )
+        );
       }
     } finally {
-      setIsLoading(false);
+      setIsStreaming(false);
       abortRef.current = null;
     }
-  };
+  }
 
-  const handleStop = () => {
+  function stopStreaming() {
     abortRef.current?.abort();
-    setIsLoading(false);
-  };
-
-  const handleNewChat = () => {
-    const conv = createConversation();
-    addConversation(conv);
-    setActiveConversationId(conv.id);
-    refreshConversations();
-  };
-
-  const handleSelectConversation = (id: string) => {
-    setActiveConversationId(id);
-  };
-
-  const handleDeleteConversation = (id: string) => {
-    deleteConversation(id);
-    refreshConversations();
-    if (id === activeConversationId) {
-      const remaining = getConversations();
-      setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
-    }
-  };
-
-  const handleRenameConversation = (id: string, title: string) => {
-    updateConversation(id, { title });
-    refreshConversations();
-  };
-
-  const handleClearAll = () => {
-    clearConversations();
-    setConversations([]);
-    setActiveConversationId(null);
-  };
-
-  const hasMessages = messages.length > 0;
+    setIsStreaming(false);
+  }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-chat-bg">
+    <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
-        activeId={activeConversationId}
-        onSelect={handleSelectConversation}
-        onNew={handleNewChat}
-        onRename={handleRenameConversation}
-        onDelete={handleDeleteConversation}
-        onClear={handleClearAll}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onNew={createNewConversation}
+        onDelete={deleteConversation}
+        isOpen={sidebarOpen}
       />
 
-      {/* Main chat area */}
-      <main className="flex-1 flex flex-col min-w-0 relative">
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto">
-          {hasMessages ? (
-            <div className="max-w-[700px] mx-auto px-4 pt-8 pb-2">
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
-              {/* Loading indicator */}
-              {isLoading && messages[messages.length - 1]?.content === "" && (
-                <div className="flex items-center gap-1.5 py-3 animate-message-in">
-                  <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-pulse-dot" style={{ animationDelay: "0ms" }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-pulse-dot" style={{ animationDelay: "200ms" }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-pulse-dot" style={{ animationDelay: "400ms" }} />
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="flex items-center gap-3 px-4 h-14 border-b border-border shrink-0">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="w-5 h-5 text-muted-foreground" />
+          </button>
+          {!activeConversation && (
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-accent" />
+              <h1 className="text-sm font-medium">ChatWise</h1>
             </div>
-          ) : (
-            /* Empty state — clean, minimal */
-            <div className="flex flex-col items-center justify-center h-full px-4">
-              <div className="flex flex-col items-center gap-2 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-foreground/60" />
+          )}
+          {activeConversation && (
+            <h2 className="text-sm font-medium truncate">
+              {activeConversation.title}
+            </h2>
+          )}
+          <div className="ml-auto">
+            <button
+              onClick={createNewConversation}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          {!activeConversation || activeConversation.messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto">
+              <div className="mb-8 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-8 h-8 text-accent" />
                 </div>
-                <h1 className="text-xl font-medium text-foreground/80">ChatWise</h1>
-                <p className="text-sm text-muted-foreground/60 text-center max-w-[300px]">
-                  Ask anything — I'll help you think, write, code, and create.
+                <h2 className="text-2xl font-semibold mb-2">Welcome to ChatWise</h2>
+                <p className="text-muted-foreground text-sm">
+                  Your intelligent AI assistant. Start a conversation below.
                 </p>
               </div>
-
-              {/* Suggested prompts */}
-              <div className="grid grid-cols-2 gap-2 max-w-[400px] w-full">
-                {[
-                  ["Explain quantum computing", "in simple terms"],
-                  ["Write a poem about", "artificial intelligence"],
-                  ["Help me debug", "a React component"],
-                  ["Summarize the plot of", "Inception"],
-                ].map(([pre, post], i) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                {SUGGESTED_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
-                    onClick={() => handleSend(`${pre} ${post}`)}
-                    className="text-left px-3 py-2.5 rounded-xl border border-border hover:bg-muted transition-all duration-150 text-sm"
+                    onClick={() => sendMessage(prompt.text)}
+                    className="flex items-start gap-3 p-4 rounded-xl border border-border bg-card hover:bg-card-hover transition-colors text-left group"
                   >
-                    <span className="text-muted-foreground/70">{pre}</span>
-                    <br />
-                    <span className="text-muted-foreground">{post}</span>
+                    <prompt.icon className="w-5 h-5 text-accent mt-0.5 shrink-0" />
+                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                      {prompt.text}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="max-w-3xl mx-auto space-y-1">
+              {activeConversation.messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+              {isStreaming && (
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4 text-accent" />
+                  </div>
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           )}
         </div>
 
-        {/* Input area */}
-        <div className="shrink-0">
-          <ChatInput
-            onSend={handleSend}
-            onStop={handleStop}
-            isLoading={isLoading}
-          />
+        {/* Input Area */}
+        <div className="border-t border-border px-4 py-4">
+          <div className="max-w-3xl mx-auto">
+            <ChatInput
+              onSend={sendMessage}
+              onStop={stopStreaming}
+              isStreaming={isStreaming}
+            />
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              ChatWise may produce inaccurate information. Verify important facts.
+            </p>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

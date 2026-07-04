@@ -1,66 +1,48 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "class",
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        card: "var(--card)",
-        "card-foreground": "var(--card-foreground)",
-        muted: "var(--muted)",
-        "muted-foreground": "var(--muted-foreground)",
-        border: "var(--border)",
-        primary: "var(--primary)",
-        "primary-foreground": "var(--primary-foreground)",
-        accent: "var(--accent)",
-        "accent-foreground": "var(--accent-foreground)",
-        sidebar: "var(--sidebar)",
-        "sidebar-hover": "var(--sidebar-hover)",
-        "sidebar-active": "var(--sidebar-active)",
-        "chat-bg": "var(--chat-bg)",
-        "chat-input-bg": "var(--chat-input-bg)",
-        "user-bubble": "var(--user-bubble)",
-        "assistant-bubble": "var(--assistant-bubble)",
-        "code-bg": "var(--code-bg)",
+        background: "#0c0c0c",
+        foreground: "#e8e8e8",
+        muted: "#1a1a1a",
+        "muted-foreground": "#888888",
+        border: "#222222",
+        accent: "#3b82f6",
+        "accent-hover": "#2563eb",
+        card: "#141414",
+        "card-hover": "#1a1a1a",
       },
-      borderRadius: {
-        DEFAULT: "var(--radius)",
-        lg: "16px",
-        xl: "20px",
+      fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
       },
-      boxShadow: {
-        glow: "var(--glow)",
-        "input-focus": "0 0 0 1px rgba(255,255,255,0.08)",
-        sidebar: "1px 0 0 0 var(--border)",
+      animation: {
+        "fade-in": "fadeIn 0.3s ease-out",
+        "slide-up": "slideUp 0.3s ease-out",
+        "pulse-subtle": "pulseSubtle 2s ease-in-out infinite",
       },
       keyframes: {
-        "fade-up": {
-          "0%": { opacity: "0", transform: "translateY(12px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        "fade-in": {
+        fadeIn: {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
-        "scale-in": {
-          "0%": { opacity: "0", transform: "scale(0.95)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
+        slideUp: {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
-      },
-      animation: {
-        "fade-up": "fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        "fade-in": "fade-in 0.2s ease-out forwards",
-        "scale-in": "scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        pulseSubtle: {
+          "0%, 100%": { opacity: "0.6" },
+          "50%": { opacity: "1" },
+        },
       },
     },
   },
-  plugins: [],
+  plugins: [require("@tailwindcss/typography")],
 };
-
 export default config;

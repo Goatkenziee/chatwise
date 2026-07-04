@@ -1,98 +1,77 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-import { ArrowUp, Square } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, Square } from "lucide-react";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   onStop: () => void;
-  isLoading: boolean;
-  placeholder?: string;
+  isStreaming: boolean;
 }
 
-export function ChatInput({ onSend, onStop, isLoading, placeholder }: ChatInputProps) {
-  const [value, setValue] = useState("");
+export function ChatInput({ onSend, onStop, isStreaming }: ChatInputProps) {
+  const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
   useEffect(() => {
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
     }
-  }, [value]);
+  }, [input]);
 
-  // Focus on mount
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
+    if (!isStreaming) {
+      textareaRef.current?.focus();
+    }
+  }, [isStreaming]);
 
-  const handleSubmit = () => {
-    const trimmed = value.trim();
-    if (!trimmed || isLoading) return;
-    onSend(trimmed);
-    setValue("");
-  };
+  function handleSubmit() {
+    if (!input.trim() || isStreaming) return;
+    onSend(input.trim());
+    setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
-  };
+  }
 
   return (
-    <div className="w-full max-w-[700px] mx-auto px-4 pb-4">
-      <div
-        className={cn(
-          "relative flex items-end gap-2",
-          "rounded-2xl border border-border bg-chat-input-bg",
-          "transition-all duration-150",
-          "focus-within:border-foreground/20 focus-within:shadow-input-focus",
-          "px-3 py-2",
-        )}
-      >
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder || "Message ChatWise..."}
-          rows={1}
-          className={cn(
-            "flex-1 bg-transparent text-sm leading-relaxed outline-none resize-none",
-            "placeholder:text-muted-foreground/60",
-            "max-h-[200px] py-1",
-          )}
-          disabled={isLoading}
-        />
-
+    <div className="flex items-end gap-2 bg-card border border-border rounded-xl px-4 py-3 focus-within:border-accent/50 transition-colors">
+      <textarea
+        ref={textareaRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Send a message..."
+        rows={1}
+        className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground outline-none resize-none max-h-[200px] leading-relaxed"
+        disabled={isStreaming}
+      />
+      {isStreaming ? (
         <button
-          onClick={isLoading ? onStop : handleSubmit}
-          disabled={!isLoading && !value.trim()}
-          className={cn(
-            "flex-shrink-0 h-8 w-8 rounded-xl flex items-center justify-center",
-            "transition-all duration-150",
-            isLoading
-              ? "bg-foreground/10 text-foreground hover:bg-foreground/20"
-              : value.trim()
-                ? "bg-foreground text-background hover:opacity-80"
-                : "bg-foreground/5 text-muted-foreground cursor-not-allowed",
-          )}
+          onClick={onStop}
+          className="p-2 rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors shrink-0"
+          aria-label="Stop generating"
         >
-          {isLoading ? (
-            <Square className="w-3.5 h-3.5 fill-current" />
-          ) : (
-            <ArrowUp className="w-4 h-4" />
-          )}
+          <Square className="w-4 h-4" />
         </button>
-      </div>
-
-      <p className="text-[11px] text-center text-muted-foreground/40 mt-2 select-none">
-        ChatWise may produce inaccurate information. Verify important facts.
-      </p>
+      ) : (
+        <button
+          onClick={handleSubmit}
+          disabled={!input.trim()}
+          className="p-2 rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          aria-label="Send message"
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 }

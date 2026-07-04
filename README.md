@@ -4,72 +4,45 @@ A modern AI chat assistant built with Next.js 14, TypeScript, and Tailwind CSS.
 
 ## Features
 
-- 🤖 **AI Chat** — Streaming responses via OpenAI API (or demo mode without a key)
-- 💻 **Code Highlighting** — Syntax-highlighted code blocks with copy button
-- 🎨 **Modern UI** — Clean dark theme inspired by OpenAI's design
-- 📱 **Responsive** — Works on desktop and mobile
-- ⚡ **Fast** — Edge-ready streaming API
+- **Streaming AI responses** — Real-time token-by-token responses
+- **Demo mode** — Works immediately without any API key
+- **Real OpenAI** — Set `OPENAI_API_KEY` for live GPT responses
+- **Markdown rendering** — Code blocks with syntax highlighting + copy button
+- **Multiple conversations** — Sidebar with new/delete/switch chats
+- **Modern dark UI** — Clean monochrome theme with smooth animations
 
 ## Getting Started
 
-### 1. Clone the repo
-
 ```bash
-git clone https://github.com/Goatkenziee/chatwise.git
+git clone https://github.com/Goatkenziee/chatwise
 cd chatwise
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
-```
-
-### 3. Set up environment variables
-
-Copy `.env.example` to `.env.local` and add your OpenAI API key:
-
-```bash
-cp .env.example .env.local
-```
-
-Then edit `.env.local`:
-
-```
-OPENAI_API_KEY=sk-your-key-here
-```
-
-> **Without an API key, the app runs in demo mode** with simulated responses so you can test the UI.
-
-### 4. Run the dev server
-
-```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 5. Build for production
+### API Key (Optional)
 
-```bash
-npm run build
-npm start
+Create a `.env.local` file:
+
+```
+OPENAI_API_KEY=your_key_here
 ```
 
-## Deploy to Vercel
+Without a key, the app runs in demo mode with preset responses.
+
+## Deploy
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Goatkenziee/chatwise)
 
-After deploying, add `OPENAI_API_KEY` to your Vercel environment variables.
+Add `OPENAI_API_KEY` as an environment variable in Vercel for full AI functionality.
 
 ## Tech Stack
 
-- **Framework:** Next.js 14 (App Router)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS
-- **AI:** OpenAI API (streaming)
-- **Markdown:** react-markdown + react-syntax-highlighter
-
-## License
-
-MIT
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- OpenAI API
+- react-markdown + react-syntax-highlighter
+- Lucide Icons

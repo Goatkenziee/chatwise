@@ -2,29 +2,199 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   ChatWise — Modern OpenAI-inspired Design System
+   Clean, linear, minimal. Dark-first with light mode support.
+   ============================================================ */
+
+/* ---------- CSS Custom Properties (Design Tokens) ---------- */
 :root {
-  --background: 240 10% 4%;
-  --foreground: 0 0% 98%;
-  --card: 240 8% 7%;
-  --card-foreground: 0 0% 98%;
-  --muted: 240 6% 14%;
-  --muted-foreground: 240 5% 65%;
-  --primary: 252 95% 70%;
-  --primary-foreground: 240 10% 4%;
-  --accent: 280 90% 66%;
-  --accent-foreground: 0 0% 100%;
-  --border: 240 6% 16%;
-  --radius: 0.75rem;
+  /* Light theme (default) */
+  --bg: #ffffff;
+  --chat-bg: #ffffff;
+  --sidebar-bg: #f7f7f8;
+  --input-bg: #ffffff;
+  --foreground: #111111;
+  --muted-foreground: #6b6b80;
+  --border: #e5e5e5;
+  --accent: #f0f0f0;
+  --ring: #111111;
+  --user-bubble: #f0f0f0;
+  --assistant-bubble: transparent;
+  --code-bg: #f4f4f5;
+  --selection: rgba(0,0,0,0.08);
 }
 
-* { border-color: hsl(var(--border)); }
-body {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
+.dark {
+  --bg: #212121;
+  --chat-bg: #212121;
+  --sidebar-bg: #171717;
+  --input-bg: #2f2f2f;
+  --foreground: #ececec;
+  --muted-foreground: #9999aa;
+  --border: #333340;
+  --accent: #2a2a2a;
+  --ring: #ececec;
+  --user-bubble: #2f2f2f;
+  --assistant-bubble: transparent;
+  --code-bg: #1a1a1a;
+  --selection: rgba(255,255,255,0.08);
+}
+
+/* ---------- Base Styles ---------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
-.gradient-text {
-  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+
+body {
+  font-family: var(--font-sans, 'Inter', system-ui, -apple-system, sans-serif);
+  background: var(--bg);
+  color: var(--foreground);
+  line-height: 1.6;
+  overflow: hidden;
 }
-.glow { box-shadow: 0 0 80px -20px hsl(var(--primary) / 0.55); }
+
+::selection {
+  background: var(--selection);
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* ---------- Animations ---------- */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* ---------- Typography overrides for prose ---------- */
+.prose {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-links: var(--foreground);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-bg: var(--code-bg);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-quotes: var(--muted-foreground);
+  --tw-prose-quote-borders: var(--border);
+  max-width: none;
+}
+
+.prose pre {
+  background: var(--code-bg) !important;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.prose code {
+  font-size: 0.85em;
+  padding: 0.15em 0.3em;
+  border-radius: 4px;
+  background: var(--accent);
+  font-weight: 500;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8em;
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- Utility ---------- */
+.bg-chat-bg { background: var(--chat-bg); }
+.bg-sidebar-bg { background: var(--sidebar-bg); }
+.bg-input-bg { background: var(--input-bg); }
+.border-border { border-color: var(--border); }
+.text-muted-foreground { color: var(--muted-foreground); }
+.hover\:bg-accent:hover { background: var(--accent); }
+.bg-user-bubble { background: var(--user-bubble); }
+.bg-code-bg { background: var(--code-bg); }
+.ring-ring { --tw-ring-color: var(--ring); }
+.border-ring { border-color: var(--ring); }

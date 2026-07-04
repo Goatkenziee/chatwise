@@ -9,18 +9,19 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.15",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.439.0",
+    "nanoid": "^5.0.7",
     "next": "14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.2",
-    "lucide-react": "^0.439.0",
-    "nanoid": "^5.0.7",
     "react-markdown": "^9.0.1",
-    "remark-gfm": "^4.0.0",
     "react-syntax-highlighter": "^15.5.0",
-    "@types/react-syntax-highlighter": "^15.5.13",
-    "@tailwindcss/typography": "^0.5.15"
+    "rehype-prism-plus": "latest",
+    "remark-gfm": "^4.0.0",
+    "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

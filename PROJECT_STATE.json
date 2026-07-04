@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-04T01:17:42.330Z",
+  "updatedAt": "2026-07-04T01:24:29.705Z",
   "framework": "Next.js",
   "dbModels": [],
   "apiRoutes": [
@@ -29,6 +29,8 @@
     "@types/react-syntax-highlighter",
     "autoprefixer",
     "clsx",
+    "eslint",
+    "eslint-config-next",
     "lucide-react",
     "nanoid",
     "next",

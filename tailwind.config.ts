@@ -1,75 +1,66 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
   darkMode: "class",
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
     extend: {
-      animation: {
-        "fade-in": "fade-in 0.3s ease-out",
-        "fade-in-up": "fade-in-up 0.4s ease-out",
-        "slide-in": "slide-in 0.3s ease-out",
-        "pulse-dot": "pulse-dot 1.4s ease-in-out infinite",
-        shimmer: "shimmer 2s linear infinite",
+      colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        card: "var(--card)",
+        "card-foreground": "var(--card-foreground)",
+        muted: "var(--muted)",
+        "muted-foreground": "var(--muted-foreground)",
+        border: "var(--border)",
+        primary: "var(--primary)",
+        "primary-foreground": "var(--primary-foreground)",
+        accent: "var(--accent)",
+        "accent-foreground": "var(--accent-foreground)",
+        sidebar: "var(--sidebar)",
+        "sidebar-hover": "var(--sidebar-hover)",
+        "sidebar-active": "var(--sidebar-active)",
+        "chat-bg": "var(--chat-bg)",
+        "chat-input-bg": "var(--chat-input-bg)",
+        "user-bubble": "var(--user-bubble)",
+        "assistant-bubble": "var(--assistant-bubble)",
+        "code-bg": "var(--code-bg)",
+      },
+      borderRadius: {
+        DEFAULT: "var(--radius)",
+        lg: "16px",
+        xl: "20px",
+      },
+      boxShadow: {
+        glow: "var(--glow)",
+        "input-focus": "0 0 0 1px rgba(255,255,255,0.08)",
+        sidebar: "1px 0 0 0 var(--border)",
       },
       keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
         "fade-in": {
-          from: { opacity: "0" },
-          to: { opacity: "1" },
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
         },
-        "fade-in-up": {
-          from: {
-            opacity: "0",
-            transform: "translateY(12px)",
-          },
-          to: {
-            opacity: "1",
-            transform: "translateY(0)",
-          },
-        },
-        "slide-in": {
-          from: {
-            opacity: "0",
-            transform: "translateX(-16px)",
-          },
-          to: {
-            opacity: "1",
-            transform: "translateX(0)",
-          },
-        },
-        "pulse-dot": {
-          "0%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
-          "50%": { opacity: "1", transform: "scale(1)" },
-        },
-        shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
         },
       },
-      colors: {
-        background: "var(--bg)",
-        foreground: "var(--foreground)",
-        muted: {
-          foreground: "var(--muted-foreground)",
-        },
-        border: "var(--border)",
-        accent: "var(--accent)",
-        ring: "var(--ring)",
-        sidebar: {
-          bg: "var(--sidebar-bg)",
-        },
-        "chat-bg": "var(--chat-bg)",
-        "input-bg": "var(--input-bg)",
-        "user-bubble": "var(--user-bubble)",
-        "code-bg": "var(--code-bg)",
+      animation: {
+        "fade-up": "fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "fade-in": "fade-in 0.2s ease-out forwards",
+        "scale-in": "scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards",
       },
     },
   },
-  plugins: [require("@tailwindcss/typography")],
+  plugins: [],
 };
 
 export default config;

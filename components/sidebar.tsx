@@ -1,19 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { Conversation } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Conversation } from "@/lib/types";
+import {
+  MessageSquarePlus,
+  MessageSquare,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 
 interface SidebarProps {
   conversations: Conversation[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
-  onClearAll: () => void;
-  isOpen: boolean;
-  onToggle: () => void;
+  onDelete: (id: string) => void;
+  onClear: () => void;
 }
 
 export function Sidebar({
@@ -21,162 +31,160 @@ export function Sidebar({
   activeId,
   onSelect,
   onNew,
-  onDelete,
   onRename,
-  onClearAll,
-  isOpen,
-  onToggle,
+  onDelete,
+  onClear,
 }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
+  const [editValue, setEditValue] = useState("");
+  const editRef = useRef<HTMLInputElement>(null);
 
-  const handleStartRename = (conv: Conversation) => {
-    setEditingId(conv.id);
-    setEditTitle(conv.title || "");
-  };
-
-  const handleFinishRename = () => {
-    if (editingId && editTitle.trim()) {
-      onRename(editingId, editTitle.trim());
+  useEffect(() => {
+    if (editingId && editRef.current) {
+      editRef.current.focus();
+      editRef.current.select();
     }
-    setEditingId(null);
-    setEditTitle("");
-  };
+  }, [editingId]);
+
+  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
-    <>
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={onToggle}
-        />
+    <aside
+      className={cn(
+        "relative flex flex-col h-full bg-sidebar border-r border-border transition-all duration-300 ease-out",
+        collapsed ? "w-[52px]" : "w-[260px]",
       )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed md:relative z-40 h-full w-72 bg-sidebar-bg border-r border-border flex flex-col transition-transform duration-200 ease-out",
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:w-0 md:border-r-0 md:overflow-hidden"
-        )}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-border">
-          <button
-            onClick={onNew}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M8 3v10M3 8h10" />
-            </svg>
-            New chat
-          </button>
-          <button
-            onClick={onToggle}
-            className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors md:hidden"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 4L4 12M4 4l8 8" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Conversation list */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {conversations.length === 0 ? (
-            <div className="text-center text-xs text-muted-foreground py-8">
-              No conversations yet
-            </div>
-          ) : (
-            conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={cn(
-                  "group flex items-center gap-1 px-2 py-1.5 rounded-lg cursor-pointer transition-colors",
-                  conv.id === activeId
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-                onClick={() => onSelect(conv.id)}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  className="shrink-0 opacity-50"
-                >
-                  <path d="M12 2H4a1 1 0 0 0-1 1v10l2-2h7a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" />
-                </svg>
-
-                {editingId === conv.id ? (
-                  <input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onBlur={handleFinishRename}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleFinishRename();
-                      if (e.key === "Escape") setEditingId(null);
-                    }}
-                    className="flex-1 bg-transparent text-sm outline-none border-b border-foreground/30"
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span className="flex-1 text-sm truncate">
-                    {conv.title || "New chat"}
-                  </span>
-                )}
-
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartRename(conv);
-                    }}
-                    className="flex items-center justify-center w-6 h-6 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-                    title="Rename"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M11 2l3 3-9 9H2v-3l9-9z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(conv.id);
-                    }}
-                    className="flex items-center justify-center w-6 h-6 rounded hover:bg-accent text-muted-foreground hover:text-red-400"
-                    title="Delete"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M2 4h12M5 4V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Footer */}
-        {conversations.length > 0 && (
-          <div className="p-2 border-t border-border">
-            <button
-              onClick={onClearAll}
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-red-400 hover:bg-accent transition-colors"
-            >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M2 4h12M5 4V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M13 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4" />
-              </svg>
-              Clear conversations
-            </button>
+    >
+      {/* Header */}
+      <div className={cn("flex items-center px-3 h-12 shrink-0", collapsed ? "justify-center" : "justify-between")}>
+        {!collapsed && (
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-foreground" />
+            <span className="text-sm font-medium">ChatWise</span>
           </div>
         )}
-      </aside>
-    </>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-sidebar-hover text-muted-foreground transition-colors"
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* New Chat Button */}
+      <div className={cn("px-2 pb-2", collapsed && "px-1")}>
+        <button
+          onClick={onNew}
+          className={cn(
+            "flex items-center gap-2 w-full rounded-lg text-sm transition-all duration-150",
+            "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+            collapsed ? "justify-center h-9 w-9 mx-auto" : "px-3 h-9",
+          )}
+        >
+          <MessageSquarePlus className="w-4 h-4 shrink-0" />
+          {!collapsed && <span>New chat</span>}
+        </button>
+      </div>
+
+      {/* Conversations List */}
+      <div className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-none">
+        {sorted.map((conv) => (
+          <div key={conv.id} className="group relative">
+            {editingId === conv.id ? (
+              <div className="flex items-center gap-1 px-2 py-1">
+                <input
+                  ref={editRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      onRename(conv.id, editValue.trim() || conv.title);
+                      setEditingId(null);
+                    }
+                    if (e.key === "Escape") {
+                      setEditingId(null);
+                    }
+                  }}
+                  className="flex-1 h-7 px-2 text-sm rounded-md bg-sidebar-active border border-border outline-none"
+                />
+                <button
+                  onClick={() => {
+                    onRename(conv.id, editValue.trim() || conv.title);
+                    setEditingId(null);
+                  }}
+                  className="h-6 w-6 flex items-center justify-center rounded hover:bg-sidebar-hover text-muted-foreground"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setEditingId(null)}
+                  className="h-6 w-6 flex items-center justify-center rounded hover:bg-sidebar-hover text-muted-foreground"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => onSelect(conv.id)}
+                className={cn(
+                  "flex items-center gap-2 w-full rounded-lg text-sm transition-all duration-150",
+                  collapsed ? "justify-center h-9" : "px-3 h-9",
+                  conv.id === activeId
+                    ? "bg-sidebar-active text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                )}
+              >
+                <MessageSquare className="w-4 h-4 shrink-0" />
+                {!collapsed && (
+                  <span className="truncate flex-1 text-left">{conv.title || "New chat"}</span>
+                )}
+                {!collapsed && conv.id === activeId && (
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(conv.id);
+                        setEditValue(conv.title);
+                      }}
+                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-sidebar-hover text-muted-foreground"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(conv.id);
+                      }}
+                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-sidebar-hover text-muted-foreground"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </button>
+            )}
+          </div>
+        ))}
+        {sorted.length === 0 && !collapsed && (
+          <div className="px-3 py-6 text-center">
+            <p className="text-xs text-muted-foreground">No conversations yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {!collapsed && conversations.length > 0 && (
+        <div className="px-2 py-2 border-t border-border">
+          <button
+            onClick={onClear}
+            className="flex items-center gap-2 w-full px-3 h-9 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-hover transition-all duration-150"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Clear conversations
+          </button>
+        </div>
+      )}
+    </aside>
   );
 }

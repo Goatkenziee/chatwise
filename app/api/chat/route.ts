@@ -1,170 +1,120 @@
 import { NextRequest } from "next/server";
+import OpenAI from "openai";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// Allow streaming responses up to 60 seconds
+export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `You are ChatWise, a helpful, thoughtful AI assistant. You respond in a clear, friendly tone. You can help with writing, analysis, coding, creative tasks, and general questions. When appropriate, use formatting like **bold**, \`code\`, and lists for clarity. Be concise but thorough.`;
+// Demo responses when no API key is set
+const DEMO_RESPONSES: Record<string, string> = {
+  hello:
+    "Hello! 👋 I'm ChatWise, your AI assistant. I can help you with writing, coding, analysis, and more. What can I help you with today?",
+  help: "Here are some things I can help you with:\n\n- **Writing** — essays, emails, reports, creative writing\n- **Coding** — debug, explain, write code in any language\n- **Analysis** — data analysis, math, logic problems\n- **Research** — explain concepts, summarize topics\n- **Brainstorming** — ideas, outlines, creative thinking\n\nJust tell me what you need!",
+  code: "Sure! Here's a quick example of a React component:\n\n```tsx\nimport { useState } from 'react';\n\ninterface CounterProps {\n  initialValue?: number;\n}\n\nexport function Counter({ initialValue = 0 }: CounterProps) {\n  const [count, setCount] = useState(initialValue);\n\n  return (\n    <div className=\"flex items-center gap-4 p-4\">\n      <button\n        onClick={() => setCount(c => c - 1)}\n        className=\"px-3 py-1 rounded bg-white/10 hover:bg-white/20\"\n      >\n        -\n      </button>\n      <span className=\"text-2xl font-mono min-w-[3rem] text-center\">\n        {count}\n      </span>\n      <button\n        onClick={() => setCount(c => c + 1)}\n        className=\"px-3 py-1 rounded bg-white/10 hover:bg-white/20\"\n      >\n        +\n      </button>\n    </div>\n  );\n}\n```\n\nThis creates a simple counter with increment/decrement buttons. The `useState` hook manages the count, and the component accepts an optional `initialValue` prop.",
+  explain: "Here's how streaming AI chat works:\n\n1. **User sends a message** — The frontend sends a POST request to the API route with the message history.\n\n2. **Server streams the response** — The API calls the AI model and streams tokens back as they're generated.\n\n3. **Frontend renders tokens live** — Each chunk is appended to the message in real-time, giving that smooth typing effect.\n\n4. **Markdown rendering** — The response is rendered as Markdown, so code blocks, lists, and formatting appear correctly.\n\nThe key technology is **Server-Sent Events (SSE)** — a standard that lets the server push data to the client over a single HTTP connection.",
+  default:
+    "That's a great question! As an AI assistant, I can help with a wide range of topics. Could you be more specific about what you'd like to know? I'm here to help with writing, coding, analysis, explanations, and creative tasks. 🚀",
+};
 
-export async function POST(req: NextRequest) {
+function getDemoResponse(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("hello") || lower.includes("hi ") || lower === "hi") return DEMO_RESPONSES.hello;
+  if (lower.includes("help") || lower.includes("what can you")) return DEMO_RESPONSES.help;
+  if (lower.includes("code") || lower.includes("example") || lower.includes("react") || lower.includes("component"))
+    return DEMO_RESPONSES.code;
+  if (lower.includes("explain") || lower.includes("how") || lower.includes("what is") || lower.includes("stream"))
+    return DEMO_RESPONSES.explain;
+  return DEMO_RESPONSES.default;
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const { messages, model = "gpt-4o-mini" } = await req.json();
+    const { messages } = await request.json();
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Messages array is required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // If no API key is set, use a simulated streaming response for demo purposes
-    if (!OPENAI_API_KEY) {
-      return simulateStreamingResponse(messages);
-    }
+    const apiKey = process.env.OPENAI_API_KEY;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages.map((m: { role: string; content: string }) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        ],
-        stream: true,
-      }),
-    });
+    // Demo mode — return simulated responses
+    if (!apiKey) {
+      const lastUserMessage = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+      const response = getDemoResponse(lastUserMessage);
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error("OpenAI API error:", response.status, errorBody);
-      // Fall back to simulated response on API error
-      return simulateStreamingResponse(messages);
-    }
-
-    // Stream the response back to the client
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split("\n").filter((line) => line.startsWith("data: "));
-
-            for (const line of lines) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content || "";
-                if (content) {
-                  controller.enqueue(encoder.encode(JSON.stringify({ content, done: false }) + "\n"));
-                }
-              } catch {
-                // Skip malformed JSON lines
-              }
-            }
+      // Simulate streaming by sending the response in chunks
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const words = response.split(" ");
+          for (let i = 0; i < words.length; i++) {
+            const chunk = (i === 0 ? "" : " ") + words[i];
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(chunk)}\n`));
+            await new Promise((r) => setTimeout(r, 20));
           }
-        } catch (err) {
-          console.error("Stream read error:", err);
-        } finally {
-          controller.enqueue(encoder.encode(JSON.stringify({ content: "", done: true }) + "\n"));
+          controller.enqueue(encoder.encode("data: [DONE]\n"));
           controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Real OpenAI streaming mode
+    const openai = new OpenAI({ apiKey });
+
+    const stream = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are ChatWise, a helpful AI assistant. You respond conversationally with markdown formatting. Use code blocks with language tags when writing code. Be concise but thorough.",
+        },
+        ...messages.map((m: any) => ({ role: m.role as "user" | "assistant" | "system", content: m.content })),
+      ],
+      stream: true,
+    });
+
+    const encoder = new TextEncoder();
+    const responseStream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || "";
+          if (content) {
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(content)}\n`));
+          }
         }
+        controller.enqueue(encoder.encode("data: [DONE]\n"));
+        controller.close();
       },
     });
 
-    return new Response(stream, {
+    return new Response(responseStream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat API error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-}
-
-/**
- * Simulated streaming response for demo when no API key is configured.
- * Generates a realistic, context-aware response.
- */
-async function simulateStreamingResponse(messages: { role: string; content: string }[]) {
-  const userMessage = messages[messages.length - 1]?.content || "";
-  const encoder = new TextEncoder();
-
-  // Generate a realistic response based on the user's message
-  const responseText = generateDemoResponse(userMessage);
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      // Stream word by word for realistic effect
-      const words = responseText.split(" ");
-
-      for (let i = 0; i < words.length; i++) {
-        const chunk = words[i] + (i < words.length - 1 ? " " : "");
-        controller.enqueue(encoder.encode(JSON.stringify({ content: chunk, done: false }) + "\n"));
-        // Small delay between words for streaming effect
-        await new Promise((r) => setTimeout(r, 20 + Math.random() * 30));
+    return new Response(
+      JSON.stringify({
+        error: error.message || "An error occurred while processing your request.",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
       }
-
-      controller.enqueue(encoder.encode(JSON.stringify({ content: "", done: true }) + "\n"));
-      controller.close();
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
-}
-
-function generateDemoResponse(userMessage: string): string {
-  const msg = userMessage.toLowerCase();
-
-  if (msg.includes("hello") || msg.includes("hi ") || msg === "hi" || msg === "hello") {
-    return "Hello! I'm ChatWise, your AI assistant. I can help you with writing, coding, research, creative tasks, and more. What can I help you with today?";
+    );
   }
-
-  if (msg.includes("code") || msg.includes("program") || msg.includes("javascript") || msg.includes("python") || msg.includes("react")) {
-    return `Great question about programming! Here's a helpful example:\n\n\`\`\`javascript\nfunction greet(name) {\n  return \`Hello, \${name}! Welcome to ChatWise.\`;\n}\n\nconsole.log(greet("Developer"));\n\`\`\`\n\nThis is a simple function that returns a greeting. You can adapt this pattern for your specific use case. Let me know if you'd like a more detailed example or have a specific programming problem you're trying to solve!`;
-  }
-
-  if (msg.includes("write") || msg.includes("essay") || msg.includes("blog") || msg.includes("content")) {
-    return "I'd be happy to help you write content! Here's a quick framework I recommend:\n\n1. **Start with a hook** — Grab your reader's attention in the first sentence.\n2. **State your thesis** — What's the main point you want to convey?\n3. **Provide evidence** — Use examples, data, or stories to support your argument.\n4. **Address counterpoints** — Show you've considered other perspectives.\n5. **End with a call to action** — What should the reader do next?\n\nWould you like me to write a specific type of content? Just tell me the topic and format you're looking for!";
-  }
-
-  if (msg.includes("help") || msg.includes("what can you do")) {
-    return "I'm ChatWise, and here's what I can help you with:\n\n- **💬 Chat & Conversation** — Ask me anything, brainstorm ideas, or just have a chat\n- **✍️ Writing** — Essays, emails, blog posts, creative writing\n- **💻 Coding** — Write, debug, and explain code in any language\n- **📚 Research** — Summarize topics, explain concepts, provide insights\n- **🧮 Analysis** — Break down problems, analyze data, think through decisions\n\nI'm powered by a streaming AI model, so you'll see my responses appear in real-time. What would you like to explore?";
-  }
-
-  if (msg.includes("thank")) {
-    return "You're very welcome! 😊 I'm glad I could help. If you have any more questions or need further assistance, don't hesitate to ask. Have a great day!";
-  }
-
-  if (msg.includes("pricing") || msg.includes("cost") || msg.includes("price") || msg.includes("free")) {
-    return "Great question about pricing! Here's what ChatWise offers:\n\n- **Free Tier** — 50 messages per day, access to GPT-4o-mini model\n- **Pro Tier ($20/mo)** — Unlimited messages, GPT-4o access, file uploads, priority support\n- **Team Tier ($50/mo)** — Everything in Pro, plus team workspaces, shared history, admin controls\n\nYou're currently on the **Free Tier**, which gives you plenty of messages to explore everything ChatWise can do!";
-  }
-
-  // Default thoughtful response
-  return `That's a great question! Let me think about this carefully.\n\nBased on what you've shared, here are a few key points to consider:\n\n1. **Context matters** — The best approach depends on your specific situation and goals.\n2. **Start simple** — Begin with a straightforward solution and iterate from there.\n3. **Test and learn** — Try different approaches and see what works best.\n\nCould you share a bit more detail about what you're looking for? That way I can give you a more tailored and helpful response.`;
 }

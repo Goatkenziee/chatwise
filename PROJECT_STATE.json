@@ -1,0 +1,46 @@
+{
+  "updatedAt": "2026-07-04T01:06:43.521Z",
+  "framework": "Next.js",
+  "dbModels": [],
+  "apiRoutes": [
+    "app/api/chat/route.ts"
+  ],
+  "pages": [
+    "app/page.tsx"
+  ],
+  "components": [
+    "app/layout.tsx",
+    "components/chat-input.tsx",
+    "components/chat-interface.tsx",
+    "components/markdown-renderer.tsx",
+    "components/message-bubble.tsx",
+    "components/sidebar.tsx",
+    "components/ui/avatar.tsx",
+    "components/ui/button.tsx",
+    "components/ui/card.tsx",
+    "components/ui/input.tsx",
+    "components/ui/textarea.tsx"
+  ],
+  "dependencies": [
+    "@tailwindcss/typography",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "@types/react-syntax-highlighter",
+    "autoprefixer",
+    "clsx",
+    "lucide-react",
+    "nanoid",
+    "next",
+    "postcss",
+    "react",
+    "react-dom",
+    "react-markdown",
+    "react-syntax-highlighter",
+    "remark-gfm",
+    "tailwind-merge",
+    "tailwindcss",
+    "typescript"
+  ],
+  "fileCount": 26
+}

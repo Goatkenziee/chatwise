@@ -1,362 +1,301 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageBubble } from "@/components/message-bubble";
-import { ChatInput } from "@/components/chat-input";
-import { Sidebar } from "@/components/sidebar";
-import { Button } from "@/components/ui/button";
-import { Sparkles, Menu, ArrowDown } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { cn } from "@/lib/utils";
+import type { Message, Conversation } from "@/lib/types";
 import {
-  createConversation,
   getConversations,
   getConversation,
+  createConversation,
   addConversation,
   updateConversation,
   deleteConversation,
-  addMessage,
   clearConversations,
+  addMessage as storeAddMessage,
 } from "@/lib/store";
-import type { Conversation, Message } from "@/lib/types";
+import { MessageBubble } from "./message-bubble";
+import { ChatInput } from "./chat-input";
+import { Sidebar } from "./sidebar";
 
 export function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   // Load conversations on mount
   useEffect(() => {
-    const convs = getConversations();
-    setConversations(convs);
-    if (convs.length > 0 && !activeId) {
-      setActiveId(convs[0].id);
+    const stored = getConversations();
+    setConversations(stored);
+    if (stored.length > 0) {
+      setActiveConversationId(stored[0].id);
+    } else {
+      // Create first conversation
+      const conv = createConversation();
+      addConversation(conv);
+      setConversations([conv]);
+      setActiveConversationId(conv.id);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Scroll to bottom on new messages
-  const scrollToBottom = useCallback((force = false) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: force ? "auto" : "smooth" });
-    }
+  const activeConversation = conversations.find(
+    (c) => c.id === activeConversationId
+  );
+  const messages = activeConversation?.messages ?? [];
+
+  // Refresh conversations from store
+  const refreshConversations = useCallback(() => {
+    setConversations([...getConversations()]);
+  }, []);
+
+  // Auto-scroll to bottom
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [streamingContent, scrollToBottom]);
+  }, [messages, scrollToBottom]);
 
-  // Track scroll position for "scroll to bottom" button
-  useEffect(() => {
-    const container = chatContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200);
-    };
-
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const activeConversation = activeId ? getConversation(activeId) : null;
-
-  const handleNewConversation = () => {
-    const conv = createConversation();
-    addConversation(conv);
-    setConversations(getConversations());
-    setActiveId(conv.id);
-    setStreamingContent("");
-  };
-
-  const handleSelectConversation = (id: string) => {
-    setActiveId(id);
-    setStreamingContent("");
-    // Collapse sidebar on mobile
-    if (window.innerWidth < 768) {
-      setSidebarCollapsed(true);
-    }
-  };
-
-  const handleDeleteConversation = (id: string) => {
-    deleteConversation(id);
-    const convs = getConversations();
-    setConversations(convs);
-    if (activeId === id) {
-      setActiveId(convs.length > 0 ? convs[0].id : null);
-    }
-  };
-
-  const handleClearConversations = () => {
-    clearConversations();
-    setConversations([]);
-    setActiveId(null);
-    setStreamingContent("");
-  };
-
-  const handleSendMessage = async (content: string) => {
-    let convId = activeId;
+  const handleSend = async (content: string) => {
+    let convId = activeConversationId;
 
     // Create new conversation if none active
     if (!convId) {
       const conv = createConversation();
       addConversation(conv);
       convId = conv.id;
-      setActiveId(conv.id);
-      setConversations(getConversations());
+      setActiveConversationId(conv.id);
+      refreshConversations();
     }
 
+    // Add user message
     const userMessage: Message = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      id: crypto.randomUUID(),
       role: "user",
       content,
       createdAt: Date.now(),
     };
+    storeAddMessage(convId, userMessage);
+    refreshConversations();
 
-    addMessage(convId, userMessage);
-    setConversations(getConversations());
+    // Add placeholder assistant message
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "",
+      createdAt: Date.now(),
+    };
+    storeAddMessage(convId, assistantMessage);
+    refreshConversations();
     setIsLoading(true);
-    setStreamingContent("");
 
     try {
-      const conv = getConversation(convId);
-      if (!conv) throw new Error("Conversation not found");
-
-      const apiMessages = conv.messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      abortRef.current = new AbortController();
-
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, model: conv.model }),
-        signal: abortRef.current.signal,
+        body: JSON.stringify({
+          messages: [...(activeConversation?.messages ?? []), userMessage],
+        }),
       });
 
-      if (!response.ok) throw new Error("API request failed");
+      if (!response.ok) throw new Error("Failed to fetch");
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response stream");
-
       const decoder = new TextDecoder();
       let fullContent = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter(Boolean);
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line);
-            if (data.done) break;
-            fullContent += data.content;
-            setStreamingContent(fullContent);
-          } catch {
-            // Skip malformed lines
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content || "";
+                fullContent += delta;
+                // Update message in store
+                const conv = getConversation(convId);
+                if (conv) {
+                  const msgIdx = conv.messages.findIndex(
+                    (m) => m.id === assistantMessage.id
+                  );
+                  if (msgIdx !== -1) {
+                    conv.messages[msgIdx].content = fullContent;
+                    updateConversation(convId, { messages: conv.messages });
+                    refreshConversations();
+                  }
+                }
+              } catch {
+                // skip parse errors
+              }
+            }
           }
         }
       }
-
-      // Save the assistant message
-      const assistantMessage: Message = {
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-        role: "assistant",
-        content: fullContent,
-        createdAt: Date.now(),
-      };
-
-      addMessage(convId, assistantMessage);
-      setConversations(getConversations());
-      setStreamingContent("");
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        // User cancelled
-      } else {
-        console.error("Chat error:", err);
-        // Add error message
-        const errorMessage: Message = {
-          id: Date.now().toString(36),
-          role: "assistant",
-          content: "I'm sorry, I encountered an error. Please try again.",
-          createdAt: Date.now(),
-        };
-        addMessage(convId!, errorMessage);
+    } catch (error) {
+      // Update with error message
+      const conv = getConversation(convId);
+      if (conv) {
+        const msgIdx = conv.messages.findIndex(
+          (m) => m.id === assistantMessage.id
+        );
+        if (msgIdx !== -1) {
+          conv.messages[msgIdx].content =
+            "Sorry, I encountered an error. Please try again.";
+          updateConversation(convId, { messages: conv.messages });
+          refreshConversations();
+        }
       }
     } finally {
       setIsLoading(false);
-      setStreamingContent("");
-      abortRef.current = null;
     }
   };
 
-  const handleStopGeneration = () => {
-    abortRef.current?.abort();
-    setIsLoading(false);
+  const handleNewChat = () => {
+    const conv = createConversation();
+    addConversation(conv);
+    setActiveConversationId(conv.id);
+    refreshConversations();
+    setSidebarOpen(false);
+  };
 
-    // Save whatever we streamed so far
-    if (activeId && streamingContent) {
-      const partialMessage: Message = {
-        id: Date.now().toString(36),
-        role: "assistant",
-        content: streamingContent + "\n\n*[Generation stopped]*",
-        createdAt: Date.now(),
-      };
-      addMessage(activeId, partialMessage);
-      setConversations(getConversations());
-      setStreamingContent("");
+  const handleSelectConversation = (id: string) => {
+    setActiveConversationId(id);
+    setSidebarOpen(false);
+  };
+
+  const handleDeleteConversation = (id: string) => {
+    deleteConversation(id);
+    refreshConversations();
+    if (id === activeConversationId) {
+      const remaining = getConversations();
+      setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
     }
   };
+
+  const handleRenameConversation = (id: string, title: string) => {
+    updateConversation(id, { title });
+    refreshConversations();
+  };
+
+  const handleClearAll = () => {
+    clearConversations();
+    setConversations([]);
+    setActiveConversationId(null);
+  };
+
+  const hasMessages = messages.length > 0;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
+    <div className="flex h-screen w-screen overflow-hidden bg-chat-bg">
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
-        activeId={activeId}
+        activeId={activeConversationId}
         onSelect={handleSelectConversation}
-        onNew={handleNewConversation}
+        onNew={handleNewChat}
         onDelete={handleDeleteConversation}
-        onClear={handleClearConversations}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onRename={handleRenameConversation}
+        onClearAll={handleClearAll}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar (mobile) */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-card/50 backdrop-blur-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarCollapsed(false)}
-            className="h-8 w-8"
-          >
-            <Menu className="w-4 h-4" />
-          </Button>
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Top bar */}
+        <header className="flex items-center justify-between px-4 py-2 border-b border-border/50">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="font-semibold text-sm gradient-text">ChatWise</span>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M2 4h12M2 8h12M2 12h12" />
+              </svg>
+            </button>
+            {activeConversation && (
+              <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                {activeConversation.title || "New chat"}
+              </span>
+            )}
           </div>
-        </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleNewChat}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+              New chat
+            </button>
+          </div>
+        </header>
 
         {/* Messages Area */}
-        <div
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto scroll-smooth"
-        >
-          {activeConversation && activeConversation.messages.length === 0 && !streamingContent ? (
-            <div className="h-full flex flex-col items-center justify-center px-6 py-16">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-6 border border-primary/10">
-                <Sparkles className="w-8 h-8 text-primary" />
+        <div className="flex-1 overflow-y-auto">
+          {!hasMessages ? (
+            /* Welcome Screen — OpenAI-style */
+            <div className="flex flex-col items-center justify-center h-full px-6 animate-fade-in-up">
+              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-foreground to-foreground/70 text-background mb-6 shadow-lg">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
               </div>
-              <h2 className="text-2xl font-semibold gradient-text mb-2">How can I help you?</h2>
-              <p className="text-muted-foreground text-sm text-center max-w-md">
-                Ask me anything — I can help with writing, coding, research, analysis, and creative tasks.
+              <h1 className="text-2xl font-semibold mb-2">How can I help you?</h1>
+              <p className="text-sm text-muted-foreground mb-8 text-center max-w-md">
+                Ask me anything — I can help with writing, analysis, coding, 
+                brainstorming, and more.
               </p>
+              <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
+                {[
+                  { icon: "✍️", text: "Write a poem about AI" },
+                  { icon: "💻", text: "Explain React hooks" },
+                  { icon: "📊", text: "Analyze this data" },
+                  { icon: "💡", text: "Brainstorm ideas" },
+                ].map((suggestion, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSend(suggestion.text)}
+                    className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-accent/50 transition-all text-left group"
+                  >
+                    <span className="text-lg shrink-0">{suggestion.icon}</span>
+                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                      {suggestion.text}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-              {activeConversation?.messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
-
-              {/* Streaming message */}
-              {streamingContent && (
+            /* Messages */
+            <div className="max-w-3xl mx-auto">
+              {messages.map((msg) => (
                 <MessageBubble
-                  message={{
-                    id: "streaming",
-                    role: "assistant",
-                    content: streamingContent,
-                    createdAt: Date.now(),
-                  }}
-                  isStreaming
+                  key={msg.id}
+                  message={msg}
+                  isLoading={isLoading && msg.role === "assistant" && !msg.content}
                 />
-              )}
-
-              {/* Loading indicator when starting */}
-              {isLoading && !streamingContent && (
-                <div className="flex gap-4 animate-fade-up">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0 mt-1">
-                    <Sparkles className="w-4 h-4 text-white animate-pulse" />
-                  </div>
-                  <div className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-card border border-border rounded-tl-md">
-                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </div>
-              )}
-
-              {/* Empty state when no conversation */}
-              {!activeConversation && !isLoading && (
-                <div className="h-[60vh] flex flex-col items-center justify-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-6 border border-primary/10">
-                    <Sparkles className="w-8 h-8 text-primary" />
-                  </div>
-                  <h2 className="text-2xl font-semibold gradient-text mb-2">Welcome to ChatWise</h2>
-                  <p className="text-muted-foreground text-sm text-center max-w-md">
-                    Start a new conversation or select one from the sidebar.
-                  </p>
-                </div>
-              )}
-
+              ))}
               <div ref={messagesEndRef} />
             </div>
           )}
         </div>
 
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <button
-            onClick={() => scrollToBottom(true)}
-            className="fixed bottom-24 right-8 z-20 w-10 h-10 rounded-xl bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 transition animate-fade-up"
-          >
-            <ArrowDown className="w-4 h-4" />
-          </button>
-        )}
-
-        {/* Input Area */}
-        <div className="border-t border-border bg-gradient-to-t from-background via-background to-transparent pt-2 pb-4 px-4">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <ChatInput
-                  onSend={handleSendMessage}
-                  isLoading={isLoading}
-                  placeholder={
-                    activeConversation
-                      ? "Message ChatWise..."
-                      : "Start a new conversation..."
-                  }
-                />
-              </div>
-              {isLoading && (
-                <Button
-                  variant="outline"
-                  onClick={handleStopGeneration}
-                  className="h-11 px-3 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                >
-                  Stop
-                </Button>
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground/40 text-center mt-2">
-              ChatWise may produce inaccurate information. Verify important facts.
-            </p>
-          </div>
+        {/* Input Area — always visible at bottom */}
+        <div className={cn(
+          "pb-4",
+          hasMessages && "border-t border-border/50 pt-3"
+        )}>
+          <ChatInput onSend={handleSend} isLoading={isLoading} />
         </div>
       </div>
     </div>

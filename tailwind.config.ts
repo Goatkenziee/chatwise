@@ -1,29 +1,75 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  content: [
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   darkMode: "class",
-  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
-    container: { center: true, padding: "1.5rem", screens: { "2xl": "1200px" } },
     extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
-        card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
-        primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
-        accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+      animation: {
+        "fade-in": "fade-in 0.3s ease-out",
+        "fade-in-up": "fade-in-up 0.4s ease-out",
+        "slide-in": "slide-in 0.3s ease-out",
+        "pulse-dot": "pulse-dot 1.4s ease-in-out infinite",
+        shimmer: "shimmer 2s linear infinite",
       },
-      borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
-      fontFamily: { sans: ["var(--font-sans)", "system-ui", "sans-serif"] },
       keyframes: {
-        "fade-up": { from: { opacity: "0", transform: "translateY(12px)" }, to: { opacity: "1", transform: "translateY(0)" } },
-        float: { "0%,100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-10px)" } },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "fade-in-up": {
+          from: {
+            opacity: "0",
+            transform: "translateY(12px)",
+          },
+          to: {
+            opacity: "1",
+            transform: "translateY(0)",
+          },
+        },
+        "slide-in": {
+          from: {
+            opacity: "0",
+            transform: "translateX(-16px)",
+          },
+          to: {
+            opacity: "1",
+            transform: "translateX(0)",
+          },
+        },
+        "pulse-dot": {
+          "0%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
+          "50%": { opacity: "1", transform: "scale(1)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
-      animation: { "fade-up": "fade-up 0.6s ease-out both", float: "float 6s ease-in-out infinite" },
+      colors: {
+        background: "var(--bg)",
+        foreground: "var(--foreground)",
+        muted: {
+          foreground: "var(--muted-foreground)",
+        },
+        border: "var(--border)",
+        accent: "var(--accent)",
+        ring: "var(--ring)",
+        sidebar: {
+          bg: "var(--sidebar-bg)",
+        },
+        "chat-bg": "var(--chat-bg)",
+        "input-bg": "var(--input-bg)",
+        "user-bubble": "var(--user-bubble)",
+        "code-bg": "var(--code-bg)",
+      },
     },
   },
   plugins: [require("@tailwindcss/typography")],
 };
+
 export default config;

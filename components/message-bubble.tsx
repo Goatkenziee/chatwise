@@ -1,53 +1,99 @@
 "use client";
 
-import React from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { Bot, User } from "lucide-react";
 import type { Message } from "@/lib/types";
+import { MarkdownRenderer } from "./markdown-renderer";
 
 interface MessageBubbleProps {
   message: Message;
-  isStreaming?: boolean;
+  isLoading?: boolean;
 }
 
-export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
-  const isUser = message.role === "user";
-  const isSystem = message.role === "system";
+export function MessageBubble({ message, isLoading }: MessageBubbleProps) {
+  const [copied, setCopied] = useState(false);
 
-  if (isSystem) return null;
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard not available
+    }
+  };
+
+  const isUser = message.role === "user";
+  const isEmpty = !message.content && isLoading;
 
   return (
-    <div className={cn("flex gap-4 w-full animate-fade-up", isUser ? "flex-row-reverse" : "flex-row")}>
+    <div
+      className={cn(
+        "group flex gap-4 px-4 py-6 animate-fade-in-up",
+        isUser ? "" : "bg-accent/20"
+      )}
+    >
       {/* Avatar */}
-      <Avatar className={cn("mt-1 shrink-0", isUser ? "bg-primary" : "bg-gradient-to-br from-primary to-accent")}>
-        <AvatarFallback>
-          {isUser ? <User className="w-4 h-4 text-primary-foreground" /> : <Bot className="w-4 h-4 text-white" />}
-        </AvatarFallback>
-      </Avatar>
+      <div className="shrink-0">
+        {isUser ? (
+          <div className="w-8 h-8 rounded-full bg-foreground text-background flex items-center justify-center text-sm font-medium">
+            U
+          </div>
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+        )}
+      </div>
 
-      {/* Message Content */}
-      <div className={cn("flex flex-col max-w-[80%] md:max-w-[70%]", isUser ? "items-end" : "items-start")}>
-        <div
-          className={cn(
-            "rounded-2xl px-4 py-3",
-            isUser
-              ? "bg-primary text-primary-foreground rounded-tr-md"
-              : "bg-card border border-border rounded-tl-md",
-          )}
-        >
-          {isUser ? (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-          ) : (
-            <div className="relative">
-              <MarkdownRenderer content={message.content} />
-              {isStreaming && (
-                <span className="inline-block w-2 h-4 bg-primary/70 animate-pulse ml-0.5 rounded-sm" />
-              )}
-            </div>
-          )}
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="text-xs text-muted-foreground mb-1 font-medium">
+          {isUser ? "You" : "ChatWise"}
         </div>
+
+        {isEmpty ? (
+          /* Animated typing dots */
+          <div className="flex items-center gap-1 py-2">
+            <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse-dot" style={{ animationDelay: "0ms" }} />
+            <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse-dot" style={{ animationDelay: "150ms" }} />
+            <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse-dot" style={{ animationDelay: "300ms" }} />
+          </div>
+        ) : (
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <MarkdownRenderer content={message.content} />
+          </div>
+        )}
+
+        {/* Copy button */}
+        {!isEmpty && (
+          <button
+            onClick={handleCopy}
+            className={cn(
+              "mt-2 flex items-center gap-1 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-foreground",
+              copied && "opacity-100 text-emerald-500"
+            )}
+          >
+            {copied ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 4L6 12l-3-3" />
+                </svg>
+                Copied!
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="4" width="12" height="12" rx="1" />
+                  <path d="M12 4V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2" />
+                </svg>
+                Copy
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

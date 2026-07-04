@@ -1,33 +1,40 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Send, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
-  isLoading: boolean;
-  placeholder?: string;
+  onSend: (content: string) => void;
+  isLoading?: boolean;
 }
 
-export function ChatInput({ onSend, isLoading, placeholder = "Message ChatWise..." }: ChatInputProps) {
-  const [input, setInput] = React.useState("");
+export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+  const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-resize textarea
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
     }
   }, [input]);
+
+  // Focus textarea on mount
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
     onSend(trimmed);
     setInput("");
+    // Reset height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -38,33 +45,47 @@ export function ChatInput({ onSend, isLoading, placeholder = "Message ChatWise..
   };
 
   return (
-    <div className="relative">
-      <div className="flex items-end gap-2 bg-card border border-border rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary/50 transition-all">
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="border-0 bg-transparent p-0 min-h-[24px] max-h-[200px] focus-visible:ring-0 placeholder:text-muted-foreground/60 resize-none"
-          rows={1}
-        />
-        <Button
-          onClick={handleSubmit}
-          disabled={!input.trim() || isLoading}
-          size="icon"
-          className={cn(
-            "h-9 w-9 shrink-0 rounded-xl transition-all",
-            input.trim() ? "opacity-100 scale-100" : "opacity-40 scale-95",
-          )}
-        >
-          {isLoading ? (
-            <Sparkles className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </Button>
+    <div className="flex flex-col items-center px-4">
+      {/* Input bar */}
+      <div className="relative w-full max-w-3xl">
+        <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-input-bg shadow-sm transition-shadow focus-within:shadow-md focus-within:border-foreground/30">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message ChatWise..."
+            rows={1}
+            disabled={isLoading}
+            className={cn(
+              "flex-1 resize-none bg-transparent px-4 py-3.5 text-sm outline-none placeholder:text-muted-foreground/60",
+              isLoading && "opacity-50 cursor-not-allowed"
+            )}
+          />
+
+          {/* Send button */}
+          <button
+            onClick={handleSubmit}
+            disabled={!input.trim() || isLoading}
+            className={cn(
+              "flex items-center justify-center w-9 h-9 rounded-xl mr-1.5 mb-1.5 transition-all",
+              input.trim() && !isLoading
+                ? "bg-foreground text-background hover:opacity-80"
+                : "bg-accent text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 1L1 6l5 4 4 5 5-14z" />
+              <path d="M10 6L6 10" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Footer note */}
+      <p className="text-xs text-muted-foreground/50 mt-2 text-center">
+        ChatWise can make mistakes. Check important info.
+      </p>
     </div>
   );
 }

@@ -4,53 +4,91 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-@layer base {
-  * {
-    @apply border-border;
+:root {
+  --background: #0c0c0c;
+  --foreground: #e8e8e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Prevent text selection on UI elements */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Smooth focus ring */
+*:focus-visible {
+  outline: none;
+  ring: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Animation for fade-in */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-@layer components {
-  .prose-code {
-    @apply relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm;
-  }
-  .message-enter {
-    animation: slideUp 0.3s ease-out;
-  }
-  .typing-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .typing-indicator span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #888;
-    animation: pulseSubtle 1.4s ease-in-out infinite;
-  }
-  .typing-indicator span:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-  .typing-indicator span:nth-child(3) {
-    animation-delay: 0.4s;
-  }
+.message-enter {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Typography prose overrides for dark theme */
+.prose-invert {
+  --tw-prose-body: #d4d4d4;
+  --tw-prose-headings: #e8e8e8;
+  --tw-prose-links: #3b82f6;
+  --tw-prose-bold: #e8e8e8;
+  --tw-prose-counters: #888;
+  --tw-prose-bullets: #555;
+  --tw-prose-hr: #222;
+  --tw-prose-quotes: #d4d4d4;
+  --tw-prose-quote-borders: #333;
+  --tw-prose-captions: #888;
+  --tw-prose-code: #3b82f6;
+  --tw-prose-pre-code: #e8e8e8;
+  --tw-prose-pre-bg: #1a1a1a;
+  --tw-prose-th-borders: #333;
+  --tw-prose-td-borders: #222;
 }

@@ -1,63 +1,92 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 
-// Allow streaming responses up to 60 seconds
-export const maxDuration = 60;
-export const runtime = "edge";
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
 
-// Demo responses when no API key is configured
+// Demo responses for when no API key is configured
 const DEMO_RESPONSES: Record<string, string> = {
   hello:
-    "Hello! I'm ChatWise, your AI assistant. I can help you with writing, coding, analysis, creative tasks, and more. What would you like to explore today?",
-  help:
-    "I can help you with:\n\n- **Writing**: essays, emails, reports, creative writing\n- **Coding**: write, debug, explain code in any language\n- **Analysis**: data interpretation, pros/cons, comparisons\n- **Learning**: explain concepts, summarize articles, study help\n- **Creative**: brainstorming, outlines, storytelling\n\nJust tell me what you need!",
-  code: "Here's a simple React component:\n\n```tsx\nimport { useState } from 'react';\n\ninterface CounterProps {\n  initialValue?: number;\n}\n\nexport function Counter({ initialValue = 0 }: CounterProps) {\n  const [count, setCount] = useState(initialValue);\n\n  return (\n    <div className=\"flex items-center gap-4 p-4\">\n      <button\n        onClick={() => setCount(c => c - 1)}\n        className=\"px-3 py-1 bg-red-500 text-white rounded\"\n      >\n        -\n      </button>\n      <span className=\"text-xl font-mono\">{count}</span>\n      <button\n        onClick={() => setCount(c => c + 1)}\n        className=\"px-3 py-1 bg-green-500 text-white rounded\"\n      >\n        +\n      </button>\n    </div>\n  );\n}\n```\n\nThis creates a simple counter with increment and decrement buttons!",
+    "Hello! I'm ChatWise, your AI assistant. How can I help you today? Feel free to ask me anything — I can help with writing, coding, analysis, brainstorming, and more!",
+  help: "I can help you with:\n\n- **Writing** — essays, emails, reports, creative writing\n- **Coding** — write, explain, debug, refactor code\n- **Analysis** — break down complex topics, compare ideas\n- **Brainstorming** — generate ideas, outline plans\n- **Learning** — explain concepts simply\n\nJust tell me what you need!",
+  code: "Here's a quick example of a Python function that sorts files by extension:\n\n```python\nimport os\nimport shutil\nfrom pathlib import Path\n\ndef sort_files_by_extension(directory: str):\n    \"\"\"Sort files into folders by their extension.\"\"\"\n    directory = Path(directory)\n    \n    for file_path in directory.iterdir():\n        if file_path.is_file():\n            # Get the extension (without the dot)\n            ext = file_path.suffix[1:] if file_path.suffix else \"no_extension\"\n            # Create the target folder\n            target_dir = directory / ext\n            target_dir.mkdir(exist_ok=True)\n            # Move the file\n            shutil.move(str(file_path), str(target_dir / file_path.name))\n    \n    print(f\"Sorted files in {directory}\")\n\n# Usage\nsort_files_by_extension(\"/path/to/your/folder\")\n```\n\nThis creates folders named after file extensions (like `pdf`, `jpg`, `txt`) and moves each file into its matching folder. Want me to modify it for your specific use case?",
 };
 
-function getDemoResponse(input: string): string {
-  const lower = input.toLowerCase().trim();
+function getDemoResponse(userMessage: string): string {
+  const lower = userMessage.toLowerCase().trim();
 
-  // Check exact matches
+  // Check for exact keywords
   for (const [key, response] of Object.entries(DEMO_RESPONSES)) {
-    if (lower === key || lower.startsWith(key + " ") || lower.endsWith(" " + key)) {
+    if (lower === key || lower.startsWith(key)) {
       return response;
     }
   }
 
-  // Check for keywords
-  if (lower.includes("hello") || lower.includes("hi ") || lower.includes("hey")) {
-    return DEMO_RESPONSES.hello;
+  // Default contextual response
+  if (lower.includes("?")) {
+    return `Great question! Let me help you with that.
+
+Here's what I can tell you about "${userMessage.slice(0, 60)}...":
+
+This is the **demo mode** of ChatWise. To get full AI-powered responses, you'll need to add your OpenAI API key by setting the \`OPENAI_API_KEY\` environment variable in your Vercel project settings.
+
+**In demo mode, I can still:**
+- Answer general questions
+- Provide code examples
+- Explain concepts
+- Help with writing
+
+**To enable the full AI experience:**
+1. Get an API key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. Add it as \`OPENAI_API_KEY\` in your Vercel project settings
+3. Deploy and enjoy real GPT-4o-mini responses!
+
+What else can I help you with?`;
   }
 
-  // Default fallback
-  return `You said: "${input}"\n\nI'm running in **demo mode** — I can respond to a few preset topics:\n\n- Say **"hello"** for a greeting\n- Say **"help"** to see what I can do\n- Say **"code"** for a code example\n\nTo unlock full AI responses, add your **OPENAI_API_KEY** as an environment variable.`;
+  return `That's an interesting topic! Let me share my thoughts on "${userMessage.slice(0, 80)}..."
+
+**Note:** I'm running in demo mode right now. To get responses powered by GPT-4o-mini, add your \`OPENAI_API_KEY\` to the environment variables.
+
+In the meantime, here are some things I can help with:
+- Try asking me to **write code** in any language
+- Ask me to **explain** a complex topic simply
+- Request **creative writing** — stories, poems, scripts
+- Ask for **analysis** or **comparisons**
+
+What would you like to explore?`;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const body = await request.json();
+    const { messages } = body as { messages: ChatMessage[] };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json({ error: "Messages are required" }, { status: 400 });
+      return NextResponse.json({ error: "Messages array is required" }, { status: 400 });
     }
 
+    const lastMessage = messages[messages.length - 1]?.content || "";
+
+    // Check if OpenAI API key is configured
     const apiKey = process.env.OPENAI_API_KEY;
 
-    // Demo mode — no API key configured
     if (!apiKey) {
-      const lastMessage = messages[messages.length - 1];
-      const userInput = lastMessage?.content || "";
-      const response = getDemoResponse(userInput);
-
-      // Simulate streaming by sending chunks
+      // Demo mode — return a simulated streaming response
+      const responseText = getDemoResponse(lastMessage);
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
-          const words = response.split(" ");
+          // Simulate token-by-token streaming
+          const words = responseText.split(" ");
           for (let i = 0; i < words.length; i++) {
             const chunk = (i === 0 ? "" : " ") + words[i];
             controller.enqueue(encoder.encode(chunk));
-            await new Promise((r) => setTimeout(r, 30 + Math.random() * 40));
+            // Random delay between 10-50ms to simulate streaming
+            await new Promise((resolve) =>
+              setTimeout(resolve, 10 + Math.random() * 40)
+            );
           }
           controller.close();
         },
@@ -66,54 +95,98 @@ export async function POST(req: NextRequest) {
       return new Response(stream, {
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
-          "X-Demo-Mode": "true",
+          "Cache-Control": "no-cache",
         },
       });
     }
 
-    // Real OpenAI mode
-    const openai = new OpenAI({ apiKey });
-
-    const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are ChatWise, a helpful AI assistant. You respond conversationally, clearly, and accurately. When sharing code, use markdown code blocks with language tags.",
-        },
-        ...messages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant" | "system",
-          content: m.content,
-        })),
-      ],
-      temperature: 0.7,
-      max_tokens: 4096,
-      stream: true,
+    // Real OpenAI streaming
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are ChatWise, a helpful AI assistant. You provide clear, accurate, and well-formatted responses. Use markdown for formatting — code blocks, lists, tables, and headings where appropriate. Be concise but thorough.",
+          },
+          ...messages,
+        ],
+        stream: true,
+        max_tokens: 2048,
+        temperature: 0.7,
+      }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenAI API error:", response.status, errorText);
+      return NextResponse.json(
+        { error: `OpenAI API error: ${response.status}` },
+        { status: response.status }
+      );
+    }
+
+    // Forward the streaming response
     const encoder = new TextEncoder();
-    const responseStream = new ReadableStream({
+    const stream = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || "";
-          if (content) {
-            controller.enqueue(encoder.encode(content));
-          }
+        const reader = response.body?.getReader();
+        if (!reader) {
+          controller.close();
+          return;
         }
-        controller.close();
+
+        const decoder = new TextDecoder();
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n").filter((line) => line.trim());
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+                if (data === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content || "";
+                  if (content) {
+                    controller.enqueue(encoder.encode(content));
+                  }
+                } catch {
+                  // Skip malformed JSON
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Stream error:", error);
+        } finally {
+          controller.close();
+        }
       },
     });
 
-    return new Response(responseStream, {
+    return new Response(stream, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
       },
     });
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(
-      { error: "An error occurred while processing your request." },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

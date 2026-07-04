@@ -2,8 +2,8 @@
 
 import { Message } from "@/lib/types";
 import { MarkdownRenderer } from "./markdown-renderer";
+import { Avatar } from "./ui/avatar";
 import { User, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
   message: Message;
@@ -13,42 +13,35 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   return (
-    <div
-      className={cn(
-        "flex items-start gap-3 px-4 py-3 message-enter",
-        isUser ? "flex-row-reverse" : ""
-      )}
-    >
+    <div className={`group flex gap-3 px-4 py-3 ${isUser ? "" : "bg-muted/30"}`}>
       {/* Avatar */}
-      <div
-        className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-          isUser
-            ? "bg-muted"
-            : "bg-accent/10"
-        )}
-      >
+      <div className="shrink-0 mt-1">
         {isUser ? (
-          <User className="w-4 h-4 text-muted-foreground" />
+          <Avatar className="bg-accent/20 text-accent border border-accent/10">
+            <User className="w-4 h-4" />
+          </Avatar>
         ) : (
-          <Zap className="w-4 h-4 text-accent" />
+          <Avatar className="bg-gradient-to-br from-accent to-purple-500 text-white shadow-sm shadow-accent/20">
+            <Zap className="w-4 h-4" />
+          </Avatar>
         )}
       </div>
 
-      {/* Message Content */}
-      <div
-        className={cn(
-          "max-w-[80%] rounded-2xl px-4 py-2.5",
-          isUser
-            ? "bg-accent text-white rounded-tr-sm"
-            : "bg-card text-foreground rounded-tl-sm border border-border"
-        )}
-      >
-        {isUser ? (
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-        ) : (
-          <div className="prose prose-invert prose-sm max-w-none">
+      {/* Content */}
+      <div className="flex-1 min-w-0 pt-0.5">
+        <div className="text-xs font-medium text-muted-foreground mb-1.5">
+          {isUser ? "You" : "ChatWise"}
+        </div>
+
+        {message.content ? (
+          <div className="text-sm leading-relaxed text-foreground/90">
             <MarkdownRenderer content={message.content} />
+          </div>
+        ) : (
+          <div className="flex gap-1 py-2">
+            <span className="w-2 h-2 rounded-full bg-accent/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+            <span className="w-2 h-2 rounded-full bg-accent/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+            <span className="w-2 h-2 rounded-full bg-accent/60 animate-bounce" style={{ animationDelay: "300ms" }} />
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-04T01:24:29.705Z",
+  "updatedAt": "2026-07-04T20:45:42.133Z",
   "framework": "Next.js",
   "dbModels": [],
   "apiRoutes": [
@@ -28,9 +28,6 @@
     "@types/react-dom",
     "@types/react-syntax-highlighter",
     "autoprefixer",
-    "clsx",
-    "eslint",
-    "eslint-config-next",
     "lucide-react",
     "nanoid",
     "next",
@@ -40,9 +37,8 @@
     "react-markdown",
     "react-syntax-highlighter",
     "remark-gfm",
-    "tailwind-merge",
     "tailwindcss",
     "typescript"
   ],
-  "fileCount": 28
+  "fileCount": 29
 }

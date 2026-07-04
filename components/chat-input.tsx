@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Send, Square } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { ArrowUp, Square } from "lucide-react";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -13,63 +13,73 @@ export function ChatInput({ onSend, onStop, isStreaming }: ChatInputProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-resize textarea
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      const newHeight = Math.min(textarea.scrollHeight, 200);
+      textarea.style.height = `${newHeight}px`;
     }
   }, [input]);
 
+  // Focus on mount
   useEffect(() => {
-    if (!isStreaming) {
-      textareaRef.current?.focus();
-    }
-  }, [isStreaming]);
+    textareaRef.current?.focus();
+  }, []);
 
-  function handleSubmit() {
-    if (!input.trim() || isStreaming) return;
-    onSend(input.trim());
+  const handleSubmit = useCallback(() => {
+    if (isStreaming) return;
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    onSend(trimmed);
     setInput("");
+    // Reset height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }
+  }, [input, isStreaming, onSend]);
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit]
+  );
 
   return (
-    <div className="flex items-end gap-2 bg-card border border-border rounded-xl px-4 py-3 focus-within:border-accent/50 transition-colors">
+    <div className="relative flex items-end gap-2 bg-card border border-border rounded-2xl px-4 py-3 focus-within:border-accent/50 focus-within:shadow-lg focus-within:shadow-accent/5 transition-all duration-200">
       <textarea
         ref={textareaRef}
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Send a message..."
+        placeholder="Ask anything..."
         rows={1}
-        className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground outline-none resize-none max-h-[200px] leading-relaxed"
         disabled={isStreaming}
+        className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 resize-none outline-none min-h-[24px] max-h-[200px] disabled:opacity-50"
+        aria-label="Chat input"
       />
+
       {isStreaming ? (
         <button
           onClick={onStop}
-          className="p-2 rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors shrink-0"
+          className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-foreground text-background hover:opacity-80 transition-all duration-150"
           aria-label="Stop generating"
         >
-          <Square className="w-4 h-4" />
+          <Square className="w-3.5 h-3.5 fill-current" />
         </button>
       ) : (
         <button
           onClick={handleSubmit}
           disabled={!input.trim()}
-          className="p-2 rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-foreground text-background hover:opacity-80 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-150"
           aria-label="Send message"
         >
-          <Send className="w-4 h-4" />
+          <ArrowUp className="w-4 h-4" />
         </button>
       )}
     </div>
